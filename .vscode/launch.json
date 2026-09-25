@@ -1,17 +1,26 @@
 {
+    "version": "0.2.0",
     "configurations": [
         {
-            "name": "C/C++: cl.exe build and debug active file",
-            "type": "cppvsdbg",
+            "name": "(gdb) Debug CMake Target",
+            "type": "cppdbg",
             "request": "launch",
-            "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
-            "args": [],
+            "program": "${command:cmake.launchTargetPath}",
+            "args": ["..\\..\\..\\courses.txt"], 
             "stopAtEntry": false,
-            "cwd": "${fileDirname}",
+            "cwd": "${command:cmake.getLaunchTargetDirectory}",
             "environment": [],
-            "console": "integratedTerminal",
-            "preLaunchTask": "C/C++: cl.exe build active file"
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "gdb.exe", 
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "CMake: build"
         }
-    ],
-    "version": "2.0.0"
+    ]
 }

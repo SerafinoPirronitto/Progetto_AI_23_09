@@ -1,4 +1,3 @@
-#pragma once
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -209,8 +208,14 @@ void parseCoursesFile(const std::string& filePath,
     }
 }
 
-int main()
+int main(int c, char** v)
 {
+    if (c != 2)
+    {
+        std::cout << "Usage: " << v[0] << " [PATH TO FILE]" << std::endl;
+        return -1;
+    }
+
     const size_t N = 8;
     const size_t M = 4;
     float adjacency[N][N];
@@ -218,7 +223,7 @@ int main()
 
     try
     {
-        parseCoursesFile("courses.txt", adjacency, preferences);
+        parseCoursesFile(v[1], adjacency, preferences);
 
         std::cout << "Conflict adjacency matrix:\n";
         for (size_t i = 0; i < N; ++i)

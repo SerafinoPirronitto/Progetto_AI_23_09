@@ -4,7 +4,6 @@
 #include <random>
 
 
-
 template<size_t N, size_t M>
 class AntColonyCTP
 {
@@ -35,4 +34,5 @@ private:
     void reinforcment(const float Δ, const Solution& π);    // update pheromones
     void evaporation(const float ρ);                        // update pheromones
     void construct_solution(Solution& s);                   // constructs valid solution
+    void calculate_probabilities(const float α, const float β);
 };
