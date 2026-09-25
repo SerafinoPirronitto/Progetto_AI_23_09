@@ -1,7 +1,8 @@
 #pragma once
 
 #include <cstddef>
-#include <array>
+#include <iomanip>
+#include <vector>
 #include <exception>
 #include <concepts>
 #include <ostream>
@@ -12,40 +13,61 @@
 template<typename T>
 concept Numeric = std::is_arithmetic_v<T>;
 
-template<Numeric T, std::size_t N, std::size_t M>
+template<Numeric T>
 class Matrix
 {
-    std::array<T, N*M> m_data{}; // represent data as a flat array (contigous in memory)
+    std::size_t N;
+    std::size_t M;
+    std::vector<T> m_data; // represent data as a flat array (contigous in memory)
 
 public:
-    constexpr const T& operator[](std::size_t row, std::size_t column) const
+    Matrix() : N(0), M(0), m_data() {}
+    Matrix(std::size_t rows, std::size_t cols)
+        : N(rows), M(cols), m_data(rows * cols, 0) {}
+
+    using reference = typename std::vector<T>::reference;
+    using const_reference = typename std::vector<T>::const_reference;
+
+    constexpr reference operator[](std::size_t row, std::size_t column)
     {
         if(row >= N || column >= M) throw std::invalid_argument("Index out of range");
         return m_data[row*M + column];
     }
-    constexpr T& operator[](std::size_t row, std::size_t column)
+    constexpr const_reference operator[](std::size_t row, std::size_t column) const
     {
         if(row >= N || column >= M) throw std::invalid_argument("Index out of range");
         return m_data[row*M + column];
     }
 
-    friend std::ostream& operator<<(std::ostream& out, const Matrix<T,N,M>& mat) const
+    std::vector<T> operator[](std::size_t row) const
+    {
+        if(row >= N) throw std::invalid_argument("Index out of range");
+        std::vector<T> _row(M);
+        for (size_t i = 0; i < M; i++)
+        {
+            _row[i] = m_data[row*M + 1];
+        }
+        return _row;
+    }
+    
+
+    friend std::ostream& operator<<(std::ostream& out, const Matrix<T>& mat)
     {
         constexpr std::size_t width = 7;
         out << "\n\n";
         out << "|" << std::setw(width) << " " << " |";
-        for (size_t i = 0; i < M; ++i) {
+        for (size_t i = 0; i < mat.M; ++i) {
             out << std::right << std::setw(width) << "Col " +  std::to_string(i) << " |";
         }
         out << "\n";
-        std::size_t total_width = width + 3 + ((width + 3) * M);
+        std::size_t total_width = width + 3 + ((width + 3) * mat.M);
         out << std::setfill('-') << std::setw(total_width) << "-";
         out << std::setfill(' ');
-        for (std::size_t i = 0; i < N*M; i++)
+        for (std::size_t i = 0; i < mat.N*mat.M; i++)
         {
-            if (i % M == 0)
+            if (i % mat.M == 0)
             {
-               out  << "\n" << "|" << std::left << std::setw(width) << " Row " + std::to_string(i/N) << "|";
+               out  << "\n" << "|" << std::left << std::setw(width) << " Row " + std::to_string(i/mat.M) << "|";
             }
             out << std::right << std::setw(width) << mat.m_data[i] << " |";
         }
@@ -68,4 +90,5 @@ public:
             if (m_data[n*M+j] != 0) ++count;
         return count;   
     }
+
 };

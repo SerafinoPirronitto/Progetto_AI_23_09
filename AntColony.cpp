@@ -3,46 +3,47 @@
 #include <limits>
 #include <stdexcept>
 #include <algorithm>
-#include <unordered_set>
 #include <string>
 #include <iostream>
+#include <cassert>
+#include <ranges>
 
-template<size_t N, size_t M>
-AntColonyCTP<N,M>::AntColonyCTP(float (&η)[N][M], float (&adj)[N][N])
+
+
+AntColonyCTP::AntColonyCTP(std::size_t N, std::size_t M,
+                        const Matrix<bool>& Adj, const Matrix<bool>& Pref)
+                        : N(N), M(M), m_adj(Adj), m_pref(Pref), m_τ(N,M), m_η(N,M), m_p(N,M)
 {
-    for (size_t i = 0; i < N; ++i)
-    {
-        for (size_t j = 0; j < M; ++j)
-        {
-            m_τ[i][j] = TMIN;
-            m_η[i][j] = η[i][j];
-        }
+    // HEURISTIC WEIGHTS
+    const float w1 = 1.0f;
+    const float w2 = 1.0f;
 
-        for (size_t j = 0; j < N; ++j)
+    for (size_t i = 0; i < N; i++)
+    {
+        for (size_t j = 0; j < M; j++)
         {
-            m_adj[i][j] = adj[i][j];
+            m_τ[i, j] = TMIN;
+            m_η[i, j] = w1*m_adj.degree(i)/m_pref.degree(i) + w2*m_pref[i, j];
         }
-    }
+    }   
 }
 
 
-template<size_t N, size_t M>
-AntColonyCTP<N,M>::Solution AntColonyCTP<N, M>::solve(size_t k, float α, float β, float ρ,
+AntColonyCTP::Solution AntColonyCTP::solve(size_t k, float α, float β, float ρ,
                                             std::mt19937& rng, const size_t MAX_CALLS, const float GOAL)
 {
     m_rng = rng;
     m_calls = 0;
 
     float best_evaluation = N + 1; // IMPOSSIBLE VALUE, it's guaranteed to change after 1 iteration.
-    Solution π; // best solution
+    Solution π; // best solution so far
     while(m_calls < MAX_CALLS && best_evaluation > GOAL)
     {
-        calculate_probabilities(α, β);
+        calculate_probabilities(α, β); // Based on pheromon's τ and heuristic η
 
         for (size_t i = 0; i < k; i++)
         {
-            Solution s;
-            construct_solution(s);
+            Solution s = construct_solution();
             float score = evaluate(s);
             if (score < best_evaluation) 
             {
@@ -60,41 +61,45 @@ AntColonyCTP<N,M>::Solution AntColonyCTP<N, M>::solve(size_t k, float α, float 
     return π;
 }
 
-template<size_t N, size_t M>
-void AntColonyCTP<N,M>::calculate_probabilities(const float α, const float β)
+void AntColonyCTP::calculate_probabilities(float α, float β)
 {
     for (size_t i = 0; i < N; i++)
     {
         float row_norm = 0.0f;
         for (size_t j = 0; j < M; j++)
         {
-            if(m_adj[i][j] == 0) // DO GIVE PROBABILITY 0 TO ADJACENT NODES
-                row_norm += (std::powf(m_τ[i][j], α) + std::powf(m_η[i][j], β));
+            row_norm += (std::powf(m_τ[i, j], α) * std::powf(m_η[i, j], β));
         }
     
         for (size_t j = 0; j < M; j++)
         {
-            m_p[i][j] = (std::powf(m_τ[i][j], α) + std::powf(m_η[i][j], β))/ row_norm;
+            m_p[i, j] = (std::powf(m_τ[i, j], α) * std::powf(m_η[i, j], β))/ row_norm;
         }
     }
 }
 
 
-template<size_t N, size_t M>
-float AntColonyCTP<N, M>::evaluate(const Solution& s)
+float AntColonyCTP::evaluate(const Solution& s)
 {
     ++m_calls;
 
     float penalty = 0;
     for (size_t i = 0; i < N; ++i)
     {
-        penalty += m_η[i][s[i]];
+        assert(s.degree(i) == 1 && "valid solutions only have one time slot for each event");
+        size_t j = 0;
+        for(; j < M; j++)
+        {
+            if (s[i, j]) break; // j = Time slot chosen for event i
+        }
+
+        penalty += 1 - m_pref[i, j]; // If it's preferred, give no penalty
     }
     return penalty;
 }
 
-template<size_t N, size_t M>
-void AntColonyCTP<N, M>::evaporation(const float ρ)
+
+void AntColonyCTP::evaporation(float ρ)
 {
     if(ρ <= 0 || ρ >= 1) throw std::invalid_argument("ρ must be in range (0, 1) excluded");
     
@@ -102,76 +107,63 @@ void AntColonyCTP<N, M>::evaporation(const float ρ)
     {
         for (size_t j = 0; j < M; j++)
         {
-            m_τ[i][j] = (1-ρ)*m_τ[i][j];   
+            m_τ[i, j] = (1-ρ)*m_τ[i, j];   
         }
     }
 }
 
-template<size_t N, size_t M>
-void AntColonyCTP<N, M>::reinforcment(const float Δ, const Solution& π)
+void AntColonyCTP::reinforcment(const float Δ, const Solution& π)
 {
     for (size_t i = 0; i < N; i++)
     {
-        m_τ[i][π[i]] = m_τ[i][π[i]] + Δ;   
+        size_t j = 0;
+        for (size_t j = 0; j < M; j++)
+            if (π[i , j]) break;
+        m_τ[i, j] = m_τ[i, j] + Δ;   
     }
 }
 
-template<size_t N, size_t M>
-void AntColonyCTP<N, M>::construct_solution(Solution& s)
+
+std::vector<float> AntColonyCTP::calculate_probability(const std::vector<size_t>& events)
+{
+    float nomr_factor = 0.0f;
+    for(const auto& e : events)
+    {
+        nomr_factor += m_adj.degree(e);
+    }
+    std::vector<float> prob_dist(events.size());
+    for(size_t i = 0; i < events.size(); i++)
+    {
+        prob_dist[i] = m_adj.degree(events[i])/nomr_factor;
+    }
+    return prob_dist;
+}
+
+AntColonyCTP::Solution AntColonyCTP::construct_solution()
 {   
-    s.fill(M);
-    std::array<size_t, N> nodes;
+    Solution s(N, M);
+
+    std::vector<size_t> unassigned_events(N);
     for (size_t i = 0; i < N; i++)
     {
-        nodes[i] = i;
+        unassigned_events[i] = i;
     }
-    std::shuffle(nodes.begin(), nodes.end(), m_rng);
 
-    for (size_t n = 0; n < N; n++)
+    for (size_t i = 0; i < N; i++)
     {
-        // Select Node at random
-        size_t i = nodes[n];
-        // Initialize available slots
-        std::vector<size_t> slots(M);
-        std::vector<float> probabilities(M);
-        for (size_t j = 0; j < M; j++)
-        {
-            slots[j] = j;
-            probabilities[j] = m_p[i][j];
-        }
+        // SELECT EVENT
+        auto event_probabilities = calculate_probability(unassigned_events);
+        std::discrete_distribution<size_t> prob_event_dist(event_probabilities.begin(), event_probabilities.end());
+        size_t index = prob_event_dist(m_rng);
+        size_t random_event = unassigned_events[index];
+        unassigned_events.erase(unassigned_events.begin() + index);
 
-        // SELECT BASED ON CALCULATED PROBABILITIES
-        std::discrete_distribution<size_t> slot_dist(probabilities.begin(), probabilities.end());
-        s[i] = slots[slot_dist(m_rng)];
-        
+        // ASSIGN TIME SLOT
+        auto time_probabilities = m_p[random_event];
+        std::discrete_distribution<size_t> prob_time_dist(time_probabilities.begin(), time_probabilities.end());
+        size_t random_time = prob_time_dist(m_rng);
 
-
-
-        /* TODO: BETTER GREEDY STRATEGY FOR CONSTRUCTION
-        // Remove constrained slots
-        for (size_t j = 0; j < N; j++)
-        {
-            if(m_adj[i][j] && s[j] != M)
-            {
-                slots.erase(s[j]);
-            }   
-        }
-        // If possible, chose a preferred values
-        for (size_t j = 0; j < M; j++)
-        {
-            if (m_η[i][j] == 0 && slots.contains(j))
-            {
-                s[i] = j;
-                break;
-            }
-        }
-        if (s[i] != M) continue;
-        if (slots.empty())
-            throw std::logic_error("No possible slots for event " + std::to_string(i));
-        std::uniform_int_distribution<size_t> slot_dist(0, static_cast<size_t>(slots.size()) - 1);
-        auto it = std::next(slots.begin(), static_cast<std::ptrdiff_t>(slot_dist(m_rng)));
-        s[i] = *it; // Assign random value from available ones */
+        s[random_event, random_time] = 1;
     }
+    return s;
 }
-
-template class AntColonyCTP<8ull, 4ull>;
