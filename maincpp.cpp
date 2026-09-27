@@ -3,6 +3,7 @@
 #include "Parser.hpp"
 #include "AntColony.hpp"
 #include <fstream>
+#include <stdlib.h>
 
 int main(int c, char** v)
 {
@@ -46,63 +47,21 @@ int main(int c, char** v)
 
         
 
-        std::cout << "Matrice di Adiacenza:" << Adj;
-        std::cout << "Matrice delle Preferenze:" << Pref << std::endl;
-        
+        std::cout << "Adjacency Matrix:" << Adj;
+        std::cout << "Preferences Matrix:" << Pref << std::endl;
         AntColonyCTP solver(N, M, Adj, Pref);
-        std::cout << "Inizio Generazione soluzione basata su ACO..." << std::endl;
-        std::mt19937 RNG{1};
-        Matrix<bool> solution = solver.solve(3, 1.0f, 1.0f, 0.1f, RNG);
-        std::cout << "Soluzione Generata per l'istanza in input:" << solution << std::endl;
-    }
 
-    return 0;
-
-
-    
-    
-
-
-    /* const size_t N = 8;
-    const size_t M = 4;
-    float adjacency[N][N];
-    float preferences[N][M];
-
-    try
-    {
-        parseCoursesFile(v[1], adjacency, preferences);
-
-        std::cout << "Conflict adjacency matrix:\n";
-        for (size_t i = 0; i < N; ++i)
+        for (int i = 1; i < 6; i++)
         {
-            for (size_t j = 0; j < N; ++j)
-                std::cout << adjacency[i][j] << " ";
-            std::cout << "\n";
+            std::cout << std::format("\033[3{}m", i);
+            std::cout << "Generating slution based on ACO..." << std::endl;
+            std::cout << "Setting random seed to " << i << std::endl;
+            std::mt19937 RNG{i};
+            Solution solution = solver.solve(3, 2.0f, 2.0f, 0.01f, RNG, 500);
+            std::cout << "Solution Found:" << solution.data() << std::endl;
         }
-
-        std::cout << "\nPenalty matrix (event x slot):\n";
-        std::cout << "0 = preferred slot, 1 = non-preferred slot\n";
-        for (size_t i = 0; i < N; ++i)
-        {
-            for (size_t j = 0; j < M; ++j)
-                std::cout << preferences[i][j] << " ";
-            std::cout << "\n";
-        }
+        std::cout << "\033[30m";
     }
-    catch (const std::exception& ex)
-    {
-        std::cerr << "Error: " << ex.what() << "\n";
-        return 1;
-    }
-    
-    // Solve CTP
-    std::mt19937 RNG{1};
-    AntColonyCTP<N, M> solver(preferences, adjacency);
-    AntColonyCTP<N, M>::Solution s = solver.solve(5, .5f, .5f, .5f, RNG);
 
-    for (size_t i = 0; i < s.size(); ++i)
-        std::cout << s[i] << " ";
-    std::cout << "\n";
- */
     return 0;
 }

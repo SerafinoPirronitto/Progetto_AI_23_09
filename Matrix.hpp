@@ -21,9 +21,8 @@ class Matrix
     std::vector<T> m_data; // represent data as a flat array (contigous in memory)
 
 public:
-    Matrix() : N(0), M(0), m_data() {}
-    Matrix(std::size_t rows, std::size_t cols)
-        : N(rows), M(cols), m_data(rows * cols, 0) {}
+    Matrix(std::size_t rows, std::size_t cols, T val = T{})
+        : N(rows), M(cols), m_data(rows * cols, val) {}
 
     using reference = typename std::vector<T>::reference;
     using const_reference = typename std::vector<T>::const_reference;
@@ -39,17 +38,6 @@ public:
         return m_data[row*M + column];
     }
 
-    std::vector<T> operator[](std::size_t row) const
-    {
-        if(row >= N) throw std::invalid_argument("Index out of range");
-        std::vector<T> _row(M);
-        for (size_t i = 0; i < M; i++)
-        {
-            _row[i] = m_data[row*M + 1];
-        }
-        return _row;
-    }
-    
 
     friend std::ostream& operator<<(std::ostream& out, const Matrix<T>& mat)
     {
@@ -57,7 +45,7 @@ public:
         out << "\n\n";
         out << "|" << std::setw(width) << " " << " |";
         for (size_t i = 0; i < mat.M; ++i) {
-            out << std::right << std::setw(width) << "Col " +  std::to_string(i) << " |";
+            out << std::right << std::setw(width) << "Col " +  std::to_string(i+1) << " |";
         }
         out << "\n";
         std::size_t total_width = width + 3 + ((width + 3) * mat.M);
@@ -67,7 +55,7 @@ public:
         {
             if (i % mat.M == 0)
             {
-               out  << "\n" << "|" << std::left << std::setw(width) << " Row " + std::to_string(i/mat.M) << "|";
+               out  << "\n" << "|" << std::left << std::setw(width) << " Row " + std::to_string(i/mat.M+1) << "|";
             }
             out << std::right << std::setw(width) << mat.m_data[i] << " |";
         }

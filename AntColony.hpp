@@ -1,14 +1,14 @@
 #pragma once
 
 #include "Matrix.hpp"
+#include "Solution.hpp"
 #include <random>
 
 
 class AntColonyCTP
 {
 public:
-    using Solution = Matrix<bool>;
-    const float TMIN = 0.1f;
+    const float TMIN ;
     const std::size_t N;
     const std::size_t M;
 
@@ -31,15 +31,15 @@ private:
     Matrix<bool> m_pref; // SOFT Constraint Table
 
     // NxM MATRIXES
-    Matrix<float> m_p; // p[i][j] = probability of selecting j from i 
-    Matrix<float> m_τ; // τ[i][j] = pheromon on the arc (i, j)
-    Matrix<float> m_η; // η[i][j] = heuristic strenght of a solution that has j after i
+    Matrix<float> m_τ; // τ[i][j] = pheromon on the vertex<x_i, v_j>
 
     // METHODS
     float evaluate(const Solution& s);                      // number of non-preferred time-slots
     void reinforcment(float Δ, const Solution& π);          // update pheromones
     void evaporation(float ρ);                              // update pheromones
-    Solution construct_solution();                   // constructs valid solution
-    void calculate_probabilities(float α, float β);         // updated probability matrix
-    std::vector<float> calculate_probability(const std::vector<size_t>& events); // calculates the probability of choosing each event for assignment
+    Solution construct_solution();                          // constructs valid solution
+
+    float p(std::size_t i, std::size_t j, const Solution& s, float α, float β); // Transition probability for each vertex <x_i, v_j> at assignment s
+    float η(std::size_t i, std::size_t j, const Solution& s); // Heuristic strenght of chosing vertex <x_i, v_j> for solution s
+
 };
