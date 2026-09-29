@@ -5,6 +5,6 @@
 #include <regex>
 #include "Matrix.hpp"
 
-void parseHeader(std::istream& input, std::size_t& out_N, std::size_t& out_M);
+void parseHeader(std::istream& input, size_t& out_N, size_t& out_M);
 void parseConflicts(std::istream& input, Matrix<bool>& out_Adj);
 void parsePreferences(std::istream& input, Matrix<bool>& out_Pref);

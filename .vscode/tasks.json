@@ -6,10 +6,10 @@
             "command": "build",
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": false
             },
             "problemMatcher": "$gcc"
-        }
+        },
     ],
     "version": "2.0.0"
 }

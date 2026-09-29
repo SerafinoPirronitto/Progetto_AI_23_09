@@ -1,7 +1,7 @@
 #include "Parser.hpp"
 #include <sstream>
 
-void parseHeader(std::istream& input, std::size_t& out_N, std::size_t& out_M)
+void parseHeader(std::istream& input, size_t& out_N, size_t& out_M)
 {   
     std::regex pattern(R"((\w+)\s*=\s*(\d+))");
     std::smatch matches;
@@ -31,7 +31,7 @@ void parseHeader(std::istream& input, std::size_t& out_N, std::size_t& out_M)
 
 void parseConflicts(std::istream& input, Matrix<bool>& out_Adj)
 {
-    std::regex pattern(R"(\w+(\d+)\s+\w+(\d+))");
+    std::regex pattern(R"(^\s*E(\d+)\s+\E(\d+)\s*$)");
     std::smatch matches;
 
     std::string line;
@@ -43,8 +43,8 @@ void parseConflicts(std::istream& input, Matrix<bool>& out_Adj)
 
         if (std::regex_match(line, matches, pattern))
         {
-            std::size_t i = std::stoull(matches[1].str());
-            std::size_t j = std::stoull(matches[2].str());
+            size_t i = std::stoull(matches[1].str());
+            size_t j = std::stoull(matches[2].str());
 
             out_Adj[i - 1, j - 1] = 1;
             out_Adj[j - 1, i - 1] = 1;
@@ -55,7 +55,7 @@ void parseConflicts(std::istream& input, Matrix<bool>& out_Adj)
 }
 void parsePreferences(std::istream& input, Matrix<bool>& out_Pref)
 {
-    std::regex line_pattern(R"(^\s*(\w+)(\d+)\s*:\s*(.+?)\s*$)");
+    std::regex line_pattern(R"(^\s*E(\d+)\s*:\s*(.+?)\s*$)");
     std::regex token_pattern(R"(^T(\d+)$)");
     std::smatch matches;
 
@@ -67,8 +67,8 @@ void parsePreferences(std::istream& input, Matrix<bool>& out_Pref)
 
         if (std::regex_match(line, matches, line_pattern))
         {
-            const std::size_t i = std::stoull(matches[2].str());
-            std::istringstream token_stream(matches[3].str());
+            const size_t i = std::stoull(matches[1].str());
+            std::istringstream token_stream(matches[2].str());
             std::string token;
 
             while (token_stream >> token)
@@ -77,7 +77,7 @@ void parsePreferences(std::istream& input, Matrix<bool>& out_Pref)
                 if (!std::regex_match(token, token_match, token_pattern))
                     throw std::invalid_argument("Bad preference: expected `Tj` tokens after the colon.");
 
-                const std::size_t j = std::stoull(token_match[1].str());
+                const size_t j = std::stoull(token_match[1].str());
                 out_Pref[i - 1, j - 1] = 1;
             }
         }

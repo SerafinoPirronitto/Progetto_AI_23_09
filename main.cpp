@@ -20,8 +20,8 @@ int main(int c, char** v)
     }
     else
     {
-        std::size_t N = 0;
-        std::size_t M = 0;
+        size_t N = 0;
+        size_t M = 0;
         try
         {
             parseHeader(file, N, M);
@@ -51,13 +51,13 @@ int main(int c, char** v)
         std::cout << "Preferences Matrix:" << Pref << std::endl;
         AntColonyCTP solver(N, M, Adj, Pref);
 
-        for (int i = 1; i < 6; i++)
+        for (uint32_t i = 1; i < 6; i++)
         {
             std::cout << std::format("\033[3{}m", i);
             std::cout << "Generating slution based on ACO..." << std::endl;
             std::cout << "Setting random seed to " << i << std::endl;
             std::mt19937 RNG{i};
-            Solution solution = solver.solve(3, 2.0f, 2.0f, 0.01f, RNG, 500);
+            Solution solution = solver.solve(8, 2.0f, 1.5f, 0.1f, RNG, 500, 1);
             std::cout << "Solution Found:" << solution.data() << std::endl;
         }
         std::cout << "\033[30m";

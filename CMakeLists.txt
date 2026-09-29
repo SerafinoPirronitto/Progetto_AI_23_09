@@ -8,8 +8,6 @@ else()
     add_compile_options(-std=c++23)
 endif()
 
-add_executable(Progetto_AI_23_09 maincpp.cpp AntColony.cpp Parser.cpp)
+add_executable(Progetto_AI_23_09 main.cpp AntColony.cpp Parser.cpp)
 
-include(CTest)
-enable_testing()
 
