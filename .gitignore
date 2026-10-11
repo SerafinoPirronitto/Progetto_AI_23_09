@@ -1,6 +1,9 @@
 out
 vc140.pdb
+<<<<<<< HEAD
 courses_2.txt
 plots.py
 triplet_plot_2.pdf
 triplet_plot.pdf
+=======
+>>>>>>> 6e49273921b23ba0afc64e457b561c88b0b81aca
