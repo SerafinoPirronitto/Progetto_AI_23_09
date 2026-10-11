@@ -2,7 +2,7 @@
 If you use GCC to compile the program, just modify `CMakePresets.json`'s compiler path to yours and run the command `cmake --build --preset GCC-build`. If you use another compiler you might have to do more work than that and it's up to you. The important thing is that **YOU MUST USE** c++23 standard (check your compiler version requirements for this) and utf-8 encoding, which should be the default for c++23 anyway, but some compilers don't do this.
 
 # General info on this code
-All the important, theoritical stuff, in the `AntColony.hpp` header and its implementation `AntColony.cpp`. In these files I made extended use of greek letters such as  "α" or "β", eventhough this is not common in source code, it helps reading the code like the standard mathematical definition of the algorithm a little better than the english phonetic translations such as "alpha" or "beta".
+All the important, theoretical stuff is located in the `AntColony.hpp` header and its implementation `AntColony.cpp`. In these files I made extended use of greek letters such as  "α" or "β", eventhough this is not common in source code, it helps reading the code like the standard mathematical definition of the algorithm a little better than the english phonetic translations such as "alpha" or "beta".
 
 All the other files contains utils for the code and can therefore be ignored, with, maybe, the exception of `Solution.hpp` which contains a class for representing solutions in memory and could be read for better understanding of the code.
 
