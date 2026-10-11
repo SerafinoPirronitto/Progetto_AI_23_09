@@ -4,9 +4,9 @@
 
 class Solution
 {   
-    Matrix<bool> m_data;            // ACTUAL SOLUTION
-    Matrix<bool> D;                 // DOMAIN
-    const Matrix<bool>& m_adj;      // CONSTRAINT MATRIX 
+    Matrix<bool> m_data;            // ACTUAL SOLUTION DATA
+    Matrix<bool> D;                 // DOMAIN TABLE
+    const Matrix<bool>& m_adj;      // CONSTRAINT MATRIX REFERENCE
     size_t N, M;
 
 
@@ -43,7 +43,7 @@ class Solution
     }
 
 public:
-    std::vector<size_t> assignment_order;
+    std::vector<size_t> assignment_order; // ASSIGNMENT ORDERD FOR THIS SOLUTON, USED FOR EXTERNAL ACO
 
     Solution(size_t rows, size_t cols, const Matrix<bool>& Adj)
         : m_data(rows, cols, 0), D(rows, cols, 1), m_adj(Adj), N(rows), M(cols) {}
@@ -85,6 +85,15 @@ public:
         return true;
     }
 
+    size_t dynamic_degree(size_t i) const
+    {
+        size_t degree = 0;
+        for (size_t j = 0; j < N; j++)
+        {
+            if(m_adj[i, j] && m_data.is_row_zero(j)) degree++;
+        }
+        return degree;
+    }
     
     const Matrix<bool>& domain() const { return D; }
     const Matrix<bool>& data() const { return m_data; }

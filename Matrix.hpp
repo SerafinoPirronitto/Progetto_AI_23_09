@@ -69,7 +69,6 @@ class Matrix<bool>
 {
     size_t N;
     size_t M;
-    size_t words_per_row; // How many uint64 are needed to represent a single row (1 for M <= 64)
     std::vector<uint64_t> m_data;
 
     // Proxy class to represent a single bit in memory
@@ -89,7 +88,7 @@ class Matrix<bool>
             return *this;
         }
         
-        // Allows reading: bool x = matrix[r][c];
+        // Allows reading: bool x = matrix[i, j];
         operator bool() const {
             return (*word >> bit_idx) & 1ULL;
         }
@@ -97,21 +96,15 @@ class Matrix<bool>
 
     public:
         Matrix(size_t rows, size_t cols, bool val = false)
-            : N(rows), M(cols), words_per_row((cols+63)/64), m_data(words_per_row*rows, val ? ~0ULL : 0ULL)
+            : N(rows), M(cols), m_data((rows * cols + 63) / 64, val ? ~0ULL : 0ULL)
         {
-            if (val && (M % 64 != 0)) {
-                size_t valid_bits_in_last_word = M % 64;
-                
-                // Create a mask that has 1s only for the valid bits.
-                // E.g., if valid_bits is 3, 1ULL << 3 is 8 (1000 in binary).
-                // 8 - 1 = 7 (0111 in binary), giving exactly 3 valid bits.
-                uint64_t mask = (1ULL << valid_bits_in_last_word) - 1;
-                
-                // Apply the mask to the last word of every row
-                for (size_t r = 0; r < rows; ++r) {
-                    size_t last_word_idx = (r * words_per_row) + (words_per_row - 1);
-                    m_data[last_word_idx] &= mask;
-                }
+            // Mask the unused bits in the very last word of the entire matrix
+            size_t total_bits = N * M;
+            if (val && (total_bits % 64 != 0)) 
+            {
+                size_t valid_bits = total_bits % 64;
+                uint64_t mask = (1ULL << valid_bits) - 1;
+                m_data.back() &= mask;
             }
         }
 
@@ -119,65 +112,82 @@ class Matrix<bool>
         BitReference operator[](size_t i, size_t j)
         {
             if (i >= N || j >= M) throw std::invalid_argument("Index out of range");
-            size_t word_idx = (i * words_per_row) + (j / 64);
-            return BitReference(&m_data[word_idx], j % 64);
+            size_t idx = i * M + j;
+            return BitReference(&m_data[idx/64], idx % 64);
         }
 
         bool operator[](size_t i, size_t j) const
         {
             if (i >= N || j >= M) throw std::invalid_argument("Index out of range");
-            size_t word_idx = (i * words_per_row) + (j / 64);
-            return (m_data[word_idx] >> (j % 64)) & 1ULL;
+            size_t idx = i * M + j;
+            return (m_data[idx/64] >> (idx % 64)) & 1ULL;
+        }
+
+        // Helper to process a row efficiently across 64-bit word boundaries
+        template<typename Func>
+        void process_row_chunks(size_t r, Func func) const 
+        {
+            size_t current = r * M;
+            size_t end = current + M;
+            
+            while (current < end) {
+                size_t word_idx = current / 64;
+                size_t bit_offset = current % 64;
+                size_t chunk_size = std::min(end - current, 64 - bit_offset);
+                
+                uint64_t mask = (chunk_size == 64) ? ~0ULL : ((1ULL << chunk_size) - 1);
+                uint64_t chunk = (m_data[word_idx] >> bit_offset) & mask;
+                
+                if (!func(chunk, chunk_size)) break; // stop early if func returns false
+                
+                current += chunk_size;
+            }
         }
 
         bool is_row_zero(size_t r) const 
         {
-            size_t offset = r * words_per_row;
-            for (size_t i = 0; i < words_per_row; ++i) 
-            {
-                if (m_data[offset + i] != 0) return false;
-            }
-            return true;
-        }
-
-        size_t first_one(size_t r) const {
-            size_t offset = r * words_per_row;
-            for (size_t i = 0; i < words_per_row; ++i) 
-            {
-                if (m_data[offset + i] != 0) 
-                {
-                    size_t bit_pos = std::countr_zero(m_data[offset + i]);
-                    size_t total_pos = (i * 64) + bit_pos;
-                    return total_pos < M ? total_pos : M;
+            bool is_zero = true;
+            process_row_chunks(r, [&](uint64_t chunk, size_t) {
+                if (chunk != 0) {
+                    is_zero = false;
+                    return false; // stop processing
                 }
-            }
-            return M;
+                return true; // continue
+            });
+            return is_zero;
         }
 
-        /*
-        if Matrix is used to represent an adjacency matrix,
-        the (out-)degree of a node n, it's just the number
-        of non-zero values in row n.
-        */
+        size_t first_one(size_t r) const 
+        {
+            size_t col_offset = 0;
+            size_t result = M;
+            process_row_chunks(r, [&](uint64_t chunk, size_t chunk_size) {
+                if (chunk != 0) {
+                    result = col_offset + std::countr_zero(chunk);
+                    return false; // stop processing
+                }
+                col_offset += chunk_size;
+                return true; // continue
+            });
+            return result;
+        }
+
         size_t count_ones(size_t r) const 
         {
             size_t count = 0;
-            size_t offset = r * words_per_row;
-            for (size_t i = 0; i < words_per_row; ++i) 
-            {
-                count += std::popcount(m_data[offset + i]);
-            }
+            process_row_chunks(r, [&](uint64_t chunk, size_t) {
+                count += std::popcount(chunk);
+                return true; // continue
+            });
             return count;
         }
-
 
         friend std::ostream& operator<<(std::ostream& out, const Matrix<bool>& mat)
         {
             constexpr size_t width = 8;
-            out << "\n\n";
-            out << "|" << std::setw(width) << " " << "|";
+            out << "\n\n|" << std::setw(width) << " " << "|";
             for (size_t i = 0; i < mat.M; ++i) {
-                out << std::right << std::setw(width) << " Col " +  std::to_string(i+1) << " |";
+                out << std::right << std::setw(width) << " Col " + std::to_string(i+1) << " |";
             }
             out << "\n";
             size_t total_width = width + 3 + ((width + 3) * mat.M);
@@ -185,7 +195,7 @@ class Matrix<bool>
             out << std::setfill(' ');
             for (size_t i = 0; i < mat.N; i++)
             {
-                out  << "\n" << "|" << std::left << std::setw(width) << " Row " + std::to_string(i + 1) << "  |";
+                out  << "\n|" << std::left << std::setw(width) << " Row " + std::to_string(i + 1) << "  |";
                 for (size_t j = 0; j < mat.M; j++)
                 {
                     out << std::right << std::setw(width) << mat[i, j] << " |";
@@ -195,3 +205,4 @@ class Matrix<bool>
             return out;
         }
 };
+

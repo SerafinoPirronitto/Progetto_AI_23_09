@@ -13,7 +13,7 @@
 
 AntColonyCTP::AntColonyCTP(size_t N, size_t M,
                         const Matrix<bool>& Adj, const Matrix<bool>& Pref)
-                        : N(N), M(M), m_adj(Adj), m_pref(Pref), m_τ(N,M), m_τx(N, N)
+                        : N(N), M(M), m_adj(Adj), m_pref(Pref), m_τ_time(N,M), m_τ_event(N, N)
 {}
 
 float AntColonyCTP::η(size_t i, size_t j, const Solution& s)
@@ -27,17 +27,17 @@ float AntColonyCTP::p(size_t i, size_t j, const Solution& s, float α, float β)
 {
     if(s.domain()[i, j] == 0) return 0;
 
-    return  std::powf(m_τ[i, j], α) *std::powf(η(i, j, s), β);
+    return  std::powf(m_τ_time[i, j], α) *std::powf(η(i, j, s), β);
 }
 
 float AntColonyCTP::ηx(size_t i, size_t j, const Solution& s)
 {
-    return 1.0f/(1 + 1.0f*m_adj.count_ones(j)/s.domain().count_ones(j));
+    return (1.0f+s.dynamic_degree(j))/(s.domain().count_ones(j) + 1.0f); // +1 to avoid division by zero
 }
 float AntColonyCTP::px(size_t i, size_t j, const Solution& s, float α, float β)
 {
     
-    return std::powf(m_τx[i, j], α) *std::powf(ηx(i, j, s), β);
+    return std::powf(m_τ_event[i, j], α) *std::powf(ηx(i, j, s), β);
 }
 
 void AntColonyCTP::reset()
@@ -48,11 +48,11 @@ void AntColonyCTP::reset()
     {
         for (size_t j = 0; j < M; j++)
         {
-            m_τ[i, j] = TMAX;
+            m_τ_time[i, j] = TMAX;
         }
         for (size_t j = 0; j < N; j++)
         {
-            m_τx[i, j] = TMAX;
+            m_τ_event[i, j] = TMAX;
         }
     }   
 }
@@ -60,7 +60,7 @@ void AntColonyCTP::reset()
 Solution* AntColonyCTP::construct_solution(float α, float β)
 {
     Solution* s = new Solution(N, M, m_adj);
-    size_t current_event = std::uniform_int_distribution<size_t>(0, N-1)(m_rng); // SELECT RANDOM EVENT
+    size_t current_event = 0;
 
     // Helper function
     auto construct_prob_dist = [&] (auto prob_func, std::vector<float>& out_prob, bool selecting_event)
@@ -126,11 +126,15 @@ Solution AntColonyCTP::solve(size_t k, float α, float β, float ρ,
                 π = s;
                 best_evaluation = score;
             }
+            if (score <= 1) break; // optimal solution found
+            if (m_calls >= MAX_CALLS) break; // stop if max calls reached
         }
 
         if(π == nullptr)
         {
             std::cerr << "Impossible to construct a valid solution after " << k << " tries.\n Try changing parameters.\n";
+            std::cerr << "tau events matrix: " << m_τ_event << std::endl;
+            std::cerr << "tau times matrix: " << m_τ_time << std::endl;
             throw new std::runtime_error("No admissable solution found"); 
         }
 
@@ -139,8 +143,8 @@ Solution AntColonyCTP::solve(size_t k, float α, float β, float ρ,
     }
     
     std::cout << "Solved after " << m_calls << " calls to evaluation function \n";
-    std::cout << "Timeslots Pheromones Matrix" << m_τ;
-    std::cout << "Events Pheromones Matrix" << m_τx;
+    //std::cout << "Timeslots Pheromones Matrix" << m_τ_time;
+    //std::cout << "Events Pheromones Matrix" << m_τ_event;
     std::cout << "Best solution found has score: " << best_evaluation << std::endl;
     return *π;
 }
@@ -170,10 +174,14 @@ void AntColonyCTP::evaporation(float ρ)
     {
         for (size_t j = 0; j < M; j++)
         {
-            m_τ[i, j] = (1-ρ)*m_τ[i, j];
-            if(m_τ[i, j] < TMIN) m_τ[i, j] = TMIN;
-            m_τx[i, j] = (1-ρ)*m_τx[i, j];
-            if(m_τx[i, j] < TMIN) m_τx[i, j] = TMIN;
+            m_τ_time[i, j] = (1-ρ)*m_τ_time[i, j];
+            if(m_τ_time[i, j] < TMIN) m_τ_time[i, j] = TMIN;
+            
+        }
+        for (size_t j = 0; j < N; j++)
+        {
+        m_τ_event[i, j] = (1-ρ)*m_τ_event[i, j];
+        if(m_τ_event[i, j] < TMIN) m_τ_event[i, j] = TMIN;
         }
     }
 }
@@ -186,15 +194,15 @@ void AntColonyCTP::reinforcment(float Δ, const Solution& π)
         if (j >= M)
             throw std::invalid_argument("Cannot reinforce an incomplete solution");
 
-        m_τ[i, j] += Δ;
-        if (m_τ[i, j] > TMAX)
-            m_τ[i, j] = TMAX;
+        m_τ_time[i, j] += Δ;
+        if (m_τ_time[i, j] > TMAX)
+            m_τ_time[i, j] = TMAX;
 
         if (i > 0)
         {
-            m_τx[π.assignment_order[i-1], π.assignment_order[i]] += Δ;
-            if (m_τx[π.assignment_order[i-1], π.assignment_order[i]] > TMAX)
-                m_τx[π.assignment_order[i-1], π.assignment_order[i]] = TMAX;   
+            m_τ_event[π.assignment_order[i-1], π.assignment_order[i]] += Δ;
+            if (m_τ_event[π.assignment_order[i-1], π.assignment_order[i]] > TMAX)
+                m_τ_event[π.assignment_order[i-1], π.assignment_order[i]] = TMAX;   
         }
     }    
 }
